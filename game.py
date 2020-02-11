@@ -88,7 +88,13 @@ def save_to_base(faq):
 
 
 def main():
-    faq = load_from_base()
+    try:
+        faq = load_from_base()
+    except Exception as e:
+        print('База вопросов и ответов не найдена, попробую скачать', e)
+        faq = download_q()
+        save_to_base(faq)
+        faq = load_from_base()
     qa_list = faq[random.choice(list(faq.keys()))]
     word = qa_list[1].split(':')[1].strip(' ').upper()
     question = qa_list[0].split(':')[1].strip(' ')
