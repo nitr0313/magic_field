@@ -2,11 +2,13 @@ import requests
 import random
 import json
 import sys
+import os
 
 base_file = 'base_q.json'
 
 
-def download_q():
+def download_from_imho24():
+    print('Попытка скачать с сайта https://imho24.info/')
     try:
         from bs4 import BeautifulSoup as bs
     except Exception as e:
@@ -38,8 +40,13 @@ def get_urls_from_pcho():
     url = 'https://polechudes-otvet.ru/'
     index = 1
     all_urls_of_questions = []
+    index = 0
     while True:
+        if index > 10:
+            break
         resp = requests.get(url)
+        if resp.status_code != 200:
+            break
         print(resp.status_code)
         soup = bs(resp.text, 'html.parser')
         trs = soup.findAll('tr')
@@ -55,24 +62,37 @@ def get_urls_from_pcho():
         if not li:
             break
         url = li.find('a').attrs['href']
+        index += 1
     return all_urls_of_questions
 
 
-def download_b():
+def download_from_pcho():
+    print('Попытка скачать с сайта https://polechudes-otvet.ru/')
     try:
         from bs4 import BeautifulSoup as bs
     except Exception as e:
         print('Ошибка импорта пакета bs4, "pip install bs4" please', e)
         return False
+    faq = {}
     # pages = ('li', class_='previous').<a href>
     urls = get_urls_from_pcho()
+    index = 0
+    faq = {}
+    print(f'Найдено {len(urls)} ссылок на задачи, попробуем сохранить')
     for url in urls:
+        print(f'Сохраняем {index} из {len(urls)}')
         resp = requests.get(url)
+        print(f'Сайт вернул код {resp.status_code}')
+        if resp.status_code != 200:
+            continue
         soup = bs(resp.text, 'html.parser')
-        # soup.findAll()
-    pass
+        q = soup.find('em')
+        a = soup.find('strong')
+        if q and a:
+            faq[index] = [q.text, a.text]
+            index += 1
 
-    # <a href = "https://polechudes-otvet.ru/ustanovit-igru/" > Установить игру < /a >
+    return faq
 
 
 def load_from_base():
@@ -88,13 +108,15 @@ def save_to_base(faq):
 
 
 def main():
-    try:
+    if os.path.isfile(base_file):
         faq = load_from_base()
-    except Exception as e:
-        print('База вопросов и ответов не найдена, попробую скачать', e)
-        faq = download_q()
+    else:
+        print('База вопросов и ответов не найдена, попробую скачать')
+        # faq = random.choice([download_from_imho24(), download_from_pcho()])
+        faq = download_from_imho24()
         save_to_base(faq)
         faq = load_from_base()
+
     qa_list = faq[random.choice(list(faq.keys()))]
     word = qa_list[1].split(':')[1].strip(' ').upper()
     question = qa_list[0].split(':')[1].strip(' ')
@@ -103,7 +125,8 @@ def main():
     print(f'Вопрос: {question}')
     while ''.join(out) != word:
         print(
-            f'CЛОВО: {out}\nБУКВ В СЛОВЕ: {len(out)}\nБУКВ НУЖНО ОТГАДАТЬ: {sum([1 for i in out if i == "_"])}')
+            f'CЛОВО: {out}\nБУКВ В СЛОВЕ: {len(out)}\n\
+                БУКВ НУЖНО ОТГАДАТЬ: { sum([1 for i in out if i == "_"]) }')
         w = input('Введите букву или слово целиком> ').upper()
         if len(w) > 1:
             if w == word:
@@ -137,7 +160,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         args = sys.argv[1:]
         if args[0] in ['-d', '--download']:
-            faq = download_b()
+            faq = download_from_pcho()
             print(faq)
             if not faq:
                 sys.exit(1)
