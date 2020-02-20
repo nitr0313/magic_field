@@ -3,8 +3,22 @@ import random
 import json
 import sys
 import os
+import time
 
 base_file = 'base_q.json'
+sectors = ['100','100',
+            '200','200',
+            '300','300',
+            '400','x3',
+            '500','x0',
+            'x2',
+            'propusk','100',
+            '200','300',
+            '400','propusk','x2',
+            'open',
+        ]
+
+scores = {}
 
 
 def download_from_imho24():
@@ -108,6 +122,7 @@ def save_to_base(faq):
 
 
 def main():
+    global scores
     if os.path.isfile(base_file):
         faq = load_from_base()
     else:
@@ -122,32 +137,76 @@ def main():
     question = qa_list[0].split(':')[1].strip(' ')
     out = ['_']*len(word)
     alphes = []
-    print(f'Вопрос: {question}')
+    players = [ x for x in scores.keys() ]
+    index = 0
+   # print(f'Вопрос: {question}')
     while ''.join(out) != word:
+        w = False
+        sector = random.choice(sectors)
+
+        if index+1 > len(players):
+            index = 0
+        os.system('clear')
+        print(f'Играет {players[index].capitalize()} ({scores[players[index]]}) ')
+        if sector == 'propusk':
+            print('Пропуск хода на барабане')
+            time.sleep(2)
+            index += 1
+            continue
+        elif sector[0] == 'x':
+            print('На барабане удвоение очков, все выши очки удваиваются, если вы назовете вернуб букву')
+        elif sector == 'open':
+            print('Сектор позволяющий открыть любую букву на барабане')
+            i = input('Введите порядковый номер буквы которую желаете открыть:\n')
+            if int(i) > len(word):
+                w  = word[-1].upper()
+            else:
+                w = word[int(i)-1].upper()
+        else:
+            print(f'На барабане {sector} очков!')
+
+        if len(alphes)>0:
+            print(f'Названные буквы: {", ".join(alphes)}')
+        print(f'Вопрос: {question}')
         print(
-            f'CЛОВО: {out}\nБУКВ В СЛОВЕ: {len(out)}\n\
-                БУКВ НУЖНО ОТГАДАТЬ: { sum([1 for i in out if i == "_"]) }')
-        w = input('Введите букву или слово целиком> ').upper()
+            f'{out}\nБУКВ В СЛОВЕ: {len(out)}\nБУКВ НУЖНО ОТГАДАТЬ: { sum([1 for i in out if i == "_"]) }')
+        if not w:
+            w = input('Введите букву или слово целиком> ').upper()
         if len(w) > 1:
             if w == word:
                 print(f'Вы выиграли!!! Слово {word}')
+                if sector[0] == 'x':
+                    scores[players[index]] *= 2
+                else:
+                    scores[players[index]] += int(sector)
                 break
             elif w in ['/QUIT', '/EXIT', '/ВЫЙТИ', '/ЗАКОНЧИТЬ']:
                 print('Выход из игры')
                 break
-            elif w in ['/ВОПРОС', '/ПОВТОРИТЬ', '/HELP']:
-                print(f'Вопрос: {question}')
-                continue
             else:
                 print('Слово названо не верно!')
+                index += 1
                 continue
+        if len(w) < 1:
+            continue
+
+        if w.upper() in alphes:
+            print('Такая буква уже была')
+            time.sleep(2)
+            continue
+
+
+        alphes.append(w)
         if w not in word:
             print("Нет такой буквы! ")
+            index += 1
             continue
-        elif w in alphes:
-            print("Буква уже называлась!")
-            continue
-        alphes.append(w)
+
+        if sector[0] =='x':
+            scores[players[index]] *= 2
+        elif sector.isdigit():
+            scores[players[index]] += int(sector)
+
         indexes = [i for i in range(len(word)) if word[i] == w]
         for i in indexes:
             out[i] = w
@@ -155,8 +214,22 @@ def main():
     return ""
 
 
+def add_users():
+    global scores
+    for _ in range(4):
+        user = input('Введите имя игрока: ')
+        if user.lower() in ['все','конец','exit','']:
+            break
+        scores[user] = 0
+
+
+
+
+
 if __name__ == '__main__':
     args = [-1]
+
+    add_users()
     if len(sys.argv) > 1:
         args = sys.argv[1:]
         if args[0] in ['-d', '--download']:
@@ -168,6 +241,7 @@ if __name__ == '__main__':
         else:
             print('Неизвестные параметры')
             sys.exit(1)
-    main()
+    while input('Еще раунд? ') in ['да','д','yes']:
+        main()
     print('Конец игры')
     input('Нажмите ENTER для выхода')
